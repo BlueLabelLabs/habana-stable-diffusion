@@ -1,22 +1,23 @@
-import argparse, os, sys, glob
-import clip
-import torch
-import torch.nn as nn
-import numpy as np
-from omegaconf import OmegaConf
-from PIL import Image
-from tqdm import tqdm, trange
-from itertools import islice
-from einops import rearrange, repeat
-from torchvision.utils import make_grid
-import scann
+import argparse
+import glob
+import os
 import time
+from itertools import islice
 from multiprocessing import cpu_count
 
-from ldm.util import instantiate_from_config, parallel_data_prefetch
+import numpy as np
+import scann
+import torch
+from PIL import Image
+from einops import rearrange
+from omegaconf import OmegaConf
+from torchvision.utils import make_grid
+from tqdm import tqdm, trange
+
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
 from ldm.modules.encoders.modules import FrozenClipImageEmbedder, FrozenCLIPTextEmbedder
+from ldm.util import instantiate_from_config, parallel_data_prefetch, get_device_initial
 
 DATABASES = [
     "openimages",
@@ -309,8 +310,15 @@ if __name__ == "__main__":
     config = OmegaConf.load(f"{opt.config}")
     model = load_model_from_config(config, f"{opt.ckpt}")
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(device)
+    device = get_device_initial()
+    if str(device) == "hpu":
+        if torch.hpu.is_available():
+            from habana_frameworks.torch.hpu import wrap_in_hpu_graph
+
+            model = wrap_in_hpu_graph(model)
+            model = model.eval().to(torch.device(device))
+    else:
+        model = model.to(device)
 
     clip_text_encoder = FrozenCLIPTextEmbedder(opt.clip_type).to(device)
 

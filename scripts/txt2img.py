@@ -1,27 +1,27 @@
-import argparse, os, sys, glob
-import cv2
-import torch
-import numpy as np
-from omegaconf import OmegaConf
-from PIL import Image
-from tqdm import tqdm, trange
-from imwatermark import WatermarkEncoder
-from itertools import islice
-from einops import rearrange
-from torchvision.utils import make_grid
+import argparse
+import os
 import time
+from contextlib import nullcontext
+from itertools import islice
+
+import cv2
+import numpy as np
+import torch
+from PIL import Image
+from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
+from einops import rearrange
+from imwatermark import WatermarkEncoder
+from omegaconf import OmegaConf
 from pytorch_lightning import seed_everything
 from torch import autocast
-from contextlib import contextmanager, nullcontext
-
-from ldm.util import instantiate_from_config
-from ldm.models.diffusion.ddim import DDIMSampler
-from ldm.models.diffusion.plms import PLMSSampler
-from ldm.models.diffusion.dpm_solver import DPMSolverSampler
-
-from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
+from torchvision.utils import make_grid
+from tqdm import tqdm, trange
 from transformers import AutoFeatureExtractor
 
+from ldm.models.diffusion.ddim import DDIMSampler
+from ldm.models.diffusion.dpm_solver import DPMSolverSampler
+from ldm.models.diffusion.plms import PLMSSampler
+from ldm.util import instantiate_from_config, get_device_initial
 
 # load safety model
 safety_model_id = "CompVis/stable-diffusion-safety-checker"
@@ -245,8 +245,15 @@ def main():
     config = OmegaConf.load(f"{opt.config}")
     model = load_model_from_config(config, f"{opt.ckpt}")
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(device)
+    device = get_device_initial()
+    if str(device) == "hpu":
+        if torch.hpu.is_available():
+            from habana_frameworks.torch.hpu import wrap_in_hpu_graph
+
+            model = wrap_in_hpu_graph(model)
+            model = model.eval().to(torch.device(device))
+    else:
+        model = model.to(device)
 
     if opt.dpm_solver:
         sampler = DPMSolverSampler(model)
