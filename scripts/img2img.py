@@ -1,25 +1,23 @@
 """make variations of input image"""
 
-import argparse
-import os
-import time
-from contextlib import nullcontext
-from itertools import islice
-
+import argparse, os, sys, glob
 import PIL
-import numpy as np
 import torch
-from PIL import Image
-from einops import rearrange, repeat
+import numpy as np
 from omegaconf import OmegaConf
-from pytorch_lightning import seed_everything
-from torch import autocast
-from torchvision.utils import make_grid
+from PIL import Image
 from tqdm import tqdm, trange
+from itertools import islice
+from einops import rearrange, repeat
+from torchvision.utils import make_grid
+from torch import autocast
+from contextlib import nullcontext
+import time
+from pytorch_lightning import seed_everything
 
+from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
-from ldm.util import instantiate_from_config, get_device_initial
 
 
 def chunk(it, size):
@@ -201,15 +199,8 @@ def main():
     config = OmegaConf.load(f"{opt.config}")
     model = load_model_from_config(config, f"{opt.ckpt}")
 
-    device = get_device_initial()
-    if str(device) == "hpu":
-        if torch.hpu.is_available():
-            from habana_frameworks.torch.hpu import wrap_in_hpu_graph
-
-            model = wrap_in_hpu_graph(model)
-            model = model.eval().to(torch.device(device))
-    else:
-        model = model.to(device)
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model = model.to(device)
 
     if opt.plms:
         raise NotImplementedError("PLMS sampler not (yet) supported")

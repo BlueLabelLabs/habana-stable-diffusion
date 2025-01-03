@@ -1,13 +1,16 @@
 import importlib
-import importlib.util
-import multiprocessing as mp
-from collections import abc
-from inspect import isfunction
-from queue import Queue
-from threading import Thread
 
-import numpy as np
 import torch
+import numpy as np
+from collections import abc
+from einops import rearrange
+from functools import partial
+
+import multiprocessing as mp
+from threading import Thread
+from queue import Queue
+
+from inspect import isfunction
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -198,29 +201,3 @@ def parallel_data_prefetch(
         return out
     else:
         return gather_res
-
-
-def get_device_initial(preferred_device=None):
-    """
-    Determine the appropriate device to use (cuda, hpu, or cpu).
-    Args:
-        preferred_device (str): User-preferred device ('cuda', 'hpu', or 'cpu').
-    Returns:
-        str: Device string ('cuda', 'hpu', or 'cpu').
-    """
-    # Check for HPU support
-    if importlib.util.find_spec("habana_frameworks") is not None:
-        from habana_frameworks.torch.utils.library_loader import load_habana_module
-
-        load_habana_module()
-        if torch.hpu.is_available():
-            if "hpu" in preferred_device or preferred_device is None:
-                return "hpu"
-
-    # Check for CUDA (GPU support)
-    if torch.cuda.is_available():
-        if "cuda" in preferred_device or preferred_device is None:
-            return "cuda"
-
-    # Default to CPU
-    return "cpu"
