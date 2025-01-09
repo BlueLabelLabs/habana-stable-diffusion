@@ -251,7 +251,7 @@ def main():
             from habana_frameworks.torch.hpu import wrap_in_hpu_graph
 
             model = wrap_in_hpu_graph(model)
-            model = model.eval().to(torch.device(device))
+            model = model.to(torch.device(device)).eval()
     else:
         model = model.to(device)
 
