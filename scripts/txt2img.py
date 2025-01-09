@@ -248,6 +248,7 @@ def main():
     device = get_device_initial()
     if str(device) == "hpu":
         if torch.hpu.is_available():
+            import habana_frameworks.torch.core as htcore # noqa: F401
             from habana_frameworks.torch.hpu import wrap_in_hpu_graph
 
             model = wrap_in_hpu_graph(model)
