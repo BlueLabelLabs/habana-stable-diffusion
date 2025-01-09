@@ -61,8 +61,6 @@ def load_model_from_config(config, ckpt, verbose=False):
         print("unexpected keys:")
         print(u)
 
-    model.cuda()
-    model.eval()
     return model
 
 
@@ -254,7 +252,7 @@ def main():
             model = wrap_in_hpu_graph(model)
             model = model.to(torch.device(device)).eval()
     else:
-        model = model.to(device)
+        model = model.to(device).eval()
 
     if opt.dpm_solver:
         sampler = DPMSolverSampler(model)
