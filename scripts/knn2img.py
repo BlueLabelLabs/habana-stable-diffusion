@@ -302,13 +302,20 @@ if __name__ == "__main__":
         type=int,
         help="The number of included neighbors, only applied when --use_neighbors=True",
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        help="device to use CPU, CUDA, HPU",
+        choices=["cpu", "cuda", "hpu"],
+        default="cpu",
+    )
 
     opt = parser.parse_args()
 
     config = OmegaConf.load(f"{opt.config}")
     model = load_model_from_config(config, f"{opt.ckpt}")
 
-    device = get_device_initial()
+    device = get_device_initial(opt.device)
     if str(device) == "hpu":
         if torch.hpu.is_available():
             import habana_frameworks.torch.core as htcore # noqa: F401

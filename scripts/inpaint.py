@@ -51,6 +51,13 @@ if __name__ == "__main__":
         default=50,
         help="number of ddim sampling steps",
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        help="device to use CPU, CUDA, HPU",
+        choices=["cpu", "cuda", "hpu"],
+        default="cpu",
+    )
     opt = parser.parse_args()
 
     masks = sorted(glob.glob(os.path.join(opt.indir, "*_mask.png")))
@@ -62,7 +69,7 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load("models/ldm/inpainting_big/last.ckpt")["state_dict"],
                           strict=False)
 
-    device = get_device_initial()
+    device = get_device_initial(opt.device)
     if str(device) == "hpu":
         if torch.hpu.is_available():
             import habana_frameworks.torch.core as htcore # noqa: F401
