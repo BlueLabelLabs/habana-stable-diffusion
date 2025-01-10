@@ -165,6 +165,31 @@ image.save("astronaut_rides_horse.png")
 ```
 
 
+#### Diffusers Integration on Intel® Gaudi® HPU
+
+A simple way to download and sample Stable Diffusion is by using the [diffusers library](https://github.com/huggingface/diffusers/tree/main#new--stable-diffusion-is-now-fully-compatible-with-diffusers):
+```py
+# make sure you're logged in with `huggingface-cli login`
+from torch import autocast, device
+from diffusers import StableDiffusionPipeline
+
+pipe = StableDiffusionPipeline.from_pretrained(
+	"CompVis/stable-diffusion-v1-4", 
+	use_auth_token=True
+)
+
+import habana_frameworks.torch.core as htcore # noqa: F401
+from habana_frameworks.torch.hpu import wrap_in_hpu_graph
+
+pipe = wrap_in_hpu_graph(pipe)
+pipe = pipe.to(device("hpu")).eval()
+
+prompt = "a photo of an astronaut riding a horse on mars"
+    
+image.save("astronaut_rides_horse_hpu.png")
+```
+
+
 ### Image Modification with Stable Diffusion
 
 By using a diffusion-denoising mechanism as first proposed by [SDEdit](https://arxiv.org/abs/2108.01073), the model can be used for different 
@@ -189,6 +214,37 @@ Values that approach 1.0 allow for lots of variations but will also produce imag
 
 This procedure can, for example, also be used to upscale samples from the base model.
 
+
+## Intel® Gaudi® HPU Usage
+
+### Build the Docker Image
+To use Intel® Gaudi® HPU for running this notebook, start by building a Docker image with the appropriate environment setup.  
+
+```bash
+docker build -t sd_hpu:latest -f Dockerfile.hpu .
+```  
+
+In the `Dockerfile.hpu`, we use the `vault.habana.ai/gaudi-docker/1.18.0/ubuntu22.04/habanalabs/pytorch-installer-2.3.1:latest` base image. Ensure that the version matches your setup.  
+See the [PyTorch Docker Images for the Intel® Gaudi® Accelerator](https://developer.habana.ai/catalog/pytorch-container/) for more information.  
+
+### Run the Container  
+
+```bash
+docker run -it --runtime=habana sd_hpu:latest
+```  
+
+Optionally, you can add a mapping volume (`-v`) to access your project directory inside the container. Add the flag `-v /path/to/your/project:/workspace/project` to the `docker run` command.  
+Replace `/path/to/your/project` with the path to your project directory on your local machine.  
+
+
+### Image Modification with Stable Diffusion on Intel® Gaudi® HPU
+
+The following command can be used to perform image modification with Stable Diffusion on Intel® Gaudi® HPU.
+To run the script on Intel® Gaudi® HPU, use the `--device hpu` option when specifying the device in the code.
+
+```
+python scripts/img2img.py --prompt "A fantasy landscape, trending on artstation" --init-img <path-to-img.jpg> --strength 0.8  --device hpu
+```
 
 ## Comments 
 
