@@ -53,9 +53,7 @@ def load_model_from_config(config, ckpt, verbose=False):
     if len(u) > 0 and verbose:
         print("unexpected keys:")
         print(u)
-
-    model.cuda()
-    model.eval()
+        
     return model
 
 
@@ -313,12 +311,13 @@ if __name__ == "__main__":
     device = get_device_initial()
     if str(device) == "hpu":
         if torch.hpu.is_available():
+            import habana_frameworks.torch.core as htcore # noqa: F401
             from habana_frameworks.torch.hpu import wrap_in_hpu_graph
 
             model = wrap_in_hpu_graph(model)
-            model = model.eval().to(torch.device(device))
+            model = model.to(torch.device(device)).eval()
     else:
-        model = model.to(device)
+        model = model.to(device).eval()
 
     clip_text_encoder = FrozenCLIPTextEmbedder(opt.clip_type).to(device)
 

@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from main import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
+from ldm.util import get_device_initial
 
 
 def make_batch(image, mask, device):
@@ -61,8 +62,16 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load("models/ldm/inpainting_big/last.ckpt")["state_dict"],
                           strict=False)
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(device)
+    device = get_device_initial()
+    if str(device) == "hpu":
+        if torch.hpu.is_available():
+            import habana_frameworks.torch.core as htcore # noqa: F401
+            from habana_frameworks.torch.hpu import wrap_in_hpu_graph
+
+            model = wrap_in_hpu_graph(model)
+            model = model.to(torch.device(device)).eval()
+    else:
+        model = model.to(device).eval()
     sampler = DDIMSampler(model)
 
     os.makedirs(opt.outdir, exist_ok=True)
