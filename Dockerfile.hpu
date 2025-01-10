@@ -1,48 +1,51 @@
-# Use the official Gaudi Docker image with PyTorch
+# Base image
 FROM vault.habana.ai/gaudi-docker/1.18.0/ubuntu22.04/habanalabs/pytorch-installer-2.4.0:latest
 
-# Set environment variables for Habana
-ENV HABANA_VISIBLE_DEVICES=all
-ENV OMPI_MCA_btl_vader_single_copy_mechanism=none
-ENV PT_HPU_LAZY_ACC_PAR_MODE=0
-ENV PT_HPU_ENABLE_LAZY_COLLECTIVES=1
+# Set working directory
+WORKDIR /workspace/sd
 
-# Set timezone to UTC and install essential packages
-ENV DEBIAN_FRONTEND="noninteractive" TZ=Etc/UTC
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     tzdata \
     python3-pip \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
+# Upgrade pip
+RUN pip install --upgrade pip
+
+# Install core dependencies
+RUN pip install \
+    numpy>=1.21.0 \
+    albumentations==0.4.3 \
+    diffusers \
+    opencv-python-headless>=4.5.1.48 \
+    pudb==2019.2 \
+    invisible-watermark \
+    imageio==2.9.0 \
+    imageio-ffmpeg==0.4.2 \
+    pytorch-lightning==1.4.2 \
+    omegaconf==2.1.1 \
+    test-tube>=0.7.5 \
+    streamlit>=0.73.1 \
+    einops==0.3.0 \
+    torch-fidelity==0.3.0 \
+    transformers==4.19.2 \
+    torchmetrics==0.6.0 \
+    kornia==0.6
+
+# Install requirements_hpu.txt
+COPY requirements_hpu.txt /workspace/sd/requirements_hpu.txt
+RUN pip install -r /workspace/sd/requirements_hpu.txt
+
+# Clone and install taming-transformers
+RUN git clone --depth 1 https://github.com/CompVis/taming-transformers.git /workspace/sd/src/taming-transformers \
+    && pip install -e /workspace/sd/src/taming-transformers
+
+# Clone and install CLIP
+RUN git clone --depth 1 https://github.com/openai/CLIP.git /workspace/sd/src/clip \
+    && pip install -e /workspace/sd/src/clip
+
+# Install local dependencies
 COPY . /workspace/sd
-WORKDIR /workspace/sd
-
-# Install core dependencies directly in the Dockerfile
-RUN pip install --upgrade pip \
-    && pip install \
-        numpy==1.19.2 \
-        albumentations==0.4.3 \
-        diffusers \
-        opencv-python==4.1.2.30 \
-        pudb==2019.2 \
-        invisible-watermark \
-        imageio==2.9.0 \
-        imageio-ffmpeg==0.4.2 \
-        pytorch-lightning==1.4.2 \
-        omegaconf==2.1.1 \
-        test-tube>=0.7.5 \
-        streamlit>=0.73.1 \
-        einops==0.3.0 \
-        torch-fidelity==0.3.0 \
-        transformers==4.19.2 \
-        torchmetrics==0.6.0 \
-        kornia==0.6 \
-        -e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers \
-        -e git+https://github.com/openai/CLIP.git@main#egg=clip \
-        -e .
-
-# Copy HPU requirements
-COPY requirements_hpu.txt /workspace/requirements_hpu.txt
-
-# Install HPU-specific dependencies
-RUN pip install -r requirements_hpu.txt
+RUN pip install -e .
