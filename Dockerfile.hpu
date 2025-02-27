@@ -38,14 +38,6 @@ RUN pip install \
 COPY requirements_hpu.txt /workspace/sd/requirements_hpu.txt
 RUN pip install -r /workspace/sd/requirements_hpu.txt
 
-# Clone and install taming-transformers
-RUN git clone --depth 1 https://github.com/CompVis/taming-transformers.git /workspace/sd/src/taming-transformers \
-    && pip install -e /workspace/sd/src/taming-transformers
-
-# Clone and install CLIP
-RUN git clone --depth 1 https://github.com/openai/CLIP.git /workspace/sd/src/clip \
-    && pip install -e /workspace/sd/src/clip
-
 # Install local dependencies
 COPY . /workspace/sd
 RUN pip install -e .

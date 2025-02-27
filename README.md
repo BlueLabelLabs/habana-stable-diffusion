@@ -199,12 +199,14 @@ prompt = "a photo of an astronaut riding a horse on mars"
 
 with autocast("hpu"):
     t1 = time.perf_counter()
-    outputs = pipe(
+    upscaled_image = pipe(
         prompt=[prompt],
         num_images_per_prompt=2,
         batch_size=4,
         output_type="pil",
-    )
+    ).images[0]
+
+upscaled_image.save("astronaut_rides_horse.png")
 print(f"Time taken: {time.perf_counter() - t1:.2f}s")
 ```
 
