@@ -210,6 +210,53 @@ upscaled_image.save("astronaut_rides_horse.png")
 print(f"Time taken: {time.perf_counter() - t1:.2f}s")
 ```
 
+---
+
+## Running on CPU
+
+Stable Diffusion can also be run using just a CPU. Note that inference will be significantly slower on a CPU compared to a GPU or specialized hardware such as Intel® Gaudi® HPU. Make sure your environment has sufficient resources, and consider reducing the image resolution or the number of sampling steps for improved performance.
+
+### Using the Reference Sampling Script on CPU
+
+If no CUDA-compatible GPU is available, PyTorch will default to the CPU. You can run the sampling script as follows:
+
+```bash
+python scripts/txt2img.py --prompt "a photograph of an astronaut riding a horse" --precision full
+```
+
+This command will use the CPU for all computations.
+
+### Using Diffusers Integration on CPU with Execution Time Measurement
+
+To run the diffusers integration on a CPU and measure the execution time (for comparison with HPU performance), use the following snippet:
+
+```python
+import time
+from diffusers import StableDiffusionPipeline
+
+# Load the pipeline and move it to CPU
+pipe = StableDiffusionPipeline.from_pretrained(
+    "CompVis/stable-diffusion-v1-4",
+    use_auth_token=True
+).to("cpu")
+
+prompt = "a photo of an astronaut riding a horse on mars"
+
+# Measure inference time on CPU
+t1 = time.perf_counter()
+output = pipe(prompt)
+t2 = time.perf_counter()
+
+print(f"Time taken for CPU inference: {t2 - t1:.2f} seconds")
+
+# Save the generated image
+image = output["sample"][0]
+image.save("astronaut_rides_horse_cpu.png")
+```
+
+**Note:** When running on CPU, avoid settings like autocast (which are beneficial primarily for GPUs) and use full precision to ensure compatibility. The printed execution time will help you compare the performance difference relative to the Intel® Gaudi® HPU, where a similar time calculation is included.
+
+---
 
 ### Image Modification with Stable Diffusion
 
