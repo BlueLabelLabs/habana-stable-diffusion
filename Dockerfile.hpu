@@ -1,4 +1,3 @@
-# Base image
 FROM vault.habana.ai/gaudi-docker/1.18.0/ubuntu22.04/habanalabs/pytorch-installer-2.4.0:latest
 
 # Set working directory
@@ -28,14 +27,22 @@ RUN pip install \
     test-tube>=0.7.5 \
     streamlit>=0.73.1 \
     einops==0.3.0 \
-    transformers==4.19.2 \
-    pytorch-lightning==1.4.2 \
+    transformers==4.45.2 \
+    pytorch-lightning==2.0.0 \
     kornia==0.6
 
 # Install requirements_hpu.txt
 COPY requirements_hpu.txt /workspace/sd/requirements_hpu.txt
 RUN pip install -r /workspace/sd/requirements_hpu.txt
 
-# Install local dependencies
+# Copy project files
 COPY . /workspace/sd
+
+# Fix ldm module issue
+ENV PYTHONPATH="/workspace/sd:${PYTHONPATH}"
+
+# Install local dependencies
 RUN pip install -e .
+
+# Final cleanup to reduce image size
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
