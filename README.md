@@ -165,6 +165,99 @@ image.save("astronaut_rides_horse.png")
 ```
 
 
+#### Diffusers Integration on Intel® Gaudi® HPU
+
+A simple way to download and sample Stable Diffusion is by using the [diffusers library](https://github.com/huggingface/diffusers/tree/main#new--stable-diffusion-is-now-fully-compatible-with-diffusers):
+```python
+# make sure you're logged in with `huggingface-cli login`
+from torch import autocast
+import time
+from optimum.habana.diffusers import GaudiDDIMScheduler, GaudiStableDiffusionPipeline
+
+model_name = "CompVis/stable-diffusion-v1-4"
+
+scheduler = GaudiDDIMScheduler.from_pretrained(model_name, subfolder="scheduler")
+
+pipe = GaudiStableDiffusionPipeline.from_pretrained(
+    model_name,
+    scheduler=scheduler,
+    use_habana=True,
+    use_hpu_graphs=True,
+    gaudi_config="Habana/stable-diffusion",
+)
+
+from habana_frameworks.torch.utils.library_loader import load_habana_module
+from optimum.habana.transformers.modeling_utils import adapt_transformers_to_gaudi
+load_habana_module()
+
+# Adapt transformers models to Gaudi for optimization
+adapt_transformers_to_gaudi()
+
+pipe = pipe.to("hpu")
+
+prompt = "a photo of an astronaut riding a horse on mars"
+
+with autocast("hpu"):
+    t1 = time.perf_counter()
+    upscaled_image = pipe(
+        prompt=[prompt],
+        num_images_per_prompt=2,
+        batch_size=4,
+        output_type="pil",
+    ).images[0]
+
+upscaled_image.save("astronaut_rides_horse.png")
+print(f"Time taken: {time.perf_counter() - t1:.2f}s")
+```
+
+---
+
+## Running on CPU
+
+Stable Diffusion can also be run using just a CPU. Note that inference will be significantly slower on a CPU compared to a GPU or specialized hardware such as Intel® Gaudi® HPU. Make sure your environment has sufficient resources, and consider reducing the image resolution or the number of sampling steps for improved performance.
+
+### Using the Reference Sampling Script on CPU
+
+If no CUDA-compatible GPU is available, PyTorch will default to the CPU. You can run the sampling script as follows:
+
+```bash
+python scripts/txt2img.py --prompt "a photograph of an astronaut riding a horse" --precision full
+```
+
+This command will use the CPU for all computations.
+
+### Using Diffusers Integration on CPU with Execution Time Measurement
+
+To run the diffusers integration on a CPU and measure the execution time (for comparison with HPU performance), use the following snippet:
+
+```python
+import time
+from diffusers import StableDiffusionPipeline
+
+# Load the pipeline and move it to CPU
+pipe = StableDiffusionPipeline.from_pretrained(
+    "CompVis/stable-diffusion-v1-4",
+    use_auth_token=True
+).to("cpu")
+
+prompt = "a photo of an astronaut riding a horse on mars"
+
+# Measure inference time on CPU
+t1 = time.perf_counter()
+output = pipe(prompt)
+t2 = time.perf_counter()
+
+print(f"Time taken for CPU inference: {t2 - t1:.2f} seconds")
+
+# Save the generated image
+image = output["sample"][0]
+image.save("astronaut_rides_horse_cpu.png")
+```
+
+**Note:** When running on CPU, avoid settings like autocast (which are beneficial primarily for GPUs) and use full precision to ensure compatibility. The printed execution time will help you compare the performance difference relative to the Intel® Gaudi® HPU, where a similar time calculation is included.
+
+---
+
 ### Image Modification with Stable Diffusion
 
 By using a diffusion-denoising mechanism as first proposed by [SDEdit](https://arxiv.org/abs/2108.01073), the model can be used for different 
@@ -189,6 +282,37 @@ Values that approach 1.0 allow for lots of variations but will also produce imag
 
 This procedure can, for example, also be used to upscale samples from the base model.
 
+
+## Intel® Gaudi® HPU Usage
+
+### Build the Docker Image
+To use Intel® Gaudi® HPU for running this notebook, start by building a Docker image with the appropriate environment setup.  
+
+```bash
+docker build -t sd_hpu:latest -f Dockerfile.hpu .
+```  
+
+In the `Dockerfile.hpu`, we use the `vault.habana.ai/gaudi-docker/1.18.0/ubuntu22.04/habanalabs/pytorch-installer-2.3.1:latest` base image. Ensure that the version matches your setup.  
+See the [PyTorch Docker Images for the Intel® Gaudi® Accelerator](https://developer.habana.ai/catalog/pytorch-container/) for more information.  
+
+### Run the Container  
+
+```bash
+docker run -it --runtime=habana sd_hpu:latest
+```  
+
+Optionally, you can add a mapping volume (`-v`) to access your project directory inside the container. Add the flag `-v /path/to/your/project:/workspace/project` to the `docker run` command.  
+Replace `/path/to/your/project` with the path to your project directory on your local machine.  
+
+
+### Image Modification with Stable Diffusion on Intel® Gaudi® HPU
+
+The following command can be used to perform image modification with Stable Diffusion on Intel® Gaudi® HPU.
+To run the script on Intel® Gaudi® HPU, use the `--device hpu` option when specifying the device in the code.
+
+```
+python scripts/img2img.py --prompt "A fantasy landscape, trending on artstation" --init-img <path-to-img.jpg> --strength 0.8  --device hpu
+```
 
 ## Comments 
 

@@ -1,23 +1,25 @@
 """make variations of input image"""
 
-import argparse, os, sys, glob
-import PIL
-import torch
-import numpy as np
-from omegaconf import OmegaConf
-from PIL import Image
-from tqdm import tqdm, trange
-from itertools import islice
-from einops import rearrange, repeat
-from torchvision.utils import make_grid
-from torch import autocast
-from contextlib import nullcontext
+import argparse
+import os
 import time
-from pytorch_lightning import seed_everything
+from contextlib import nullcontext
+from itertools import islice
 
-from ldm.util import instantiate_from_config
+import PIL
+import numpy as np
+import torch
+from PIL import Image
+from einops import rearrange, repeat
+from omegaconf import OmegaConf
+from pytorch_lightning import seed_everything
+from torch import autocast
+from torchvision.utils import make_grid
+from tqdm import tqdm, trange
+
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
+from ldm.util import instantiate_from_config, get_device_initial
 
 
 def chunk(it, size):
@@ -40,8 +42,6 @@ def load_model_from_config(config, ckpt, verbose=False):
         print("unexpected keys:")
         print(u)
 
-    model.cuda()
-    model.eval()
     return model
 
 
@@ -192,6 +192,13 @@ def main():
         choices=["full", "autocast"],
         default="autocast"
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        help="device to use CPU, CUDA, HPU",
+        choices=["cpu", "cuda", "hpu"],
+        default="cpu",
+    )
 
     opt = parser.parse_args()
     seed_everything(opt.seed)
@@ -199,8 +206,16 @@ def main():
     config = OmegaConf.load(f"{opt.config}")
     model = load_model_from_config(config, f"{opt.ckpt}")
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(device)
+    device = get_device_initial(opt.device)
+    if str(device) == "hpu":
+        if torch.hpu.is_available():
+            import habana_frameworks.torch.core as htcore # noqa: F401
+            from habana_frameworks.torch.hpu import wrap_in_hpu_graph
+
+            model = wrap_in_hpu_graph(model)
+            model = model.to(torch.device(device)).eval()
+    else:
+        model = model.to(device).eval()
 
     if opt.plms:
         raise NotImplementedError("PLMS sampler not (yet) supported")

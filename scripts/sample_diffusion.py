@@ -8,7 +8,7 @@ from omegaconf import OmegaConf
 from PIL import Image
 
 from ldm.models.diffusion.ddim import DDIMSampler
-from ldm.util import instantiate_from_config
+from ldm.util import instantiate_from_config, get_device_initial
 
 rescale = lambda x: (x + 1.) / 2.
 
@@ -220,8 +220,18 @@ def get_parser():
 def load_model_from_config(config, sd):
     model = instantiate_from_config(config)
     model.load_state_dict(sd,strict=False)
-    model.cuda()
-    model.eval()
+    
+    device = get_device_initial()
+    if str(device) == "hpu":
+        if torch.hpu.is_available():
+            import habana_frameworks.torch.core as htcore # noqa: F401
+            from habana_frameworks.torch.hpu import wrap_in_hpu_graph
+
+            model = wrap_in_hpu_graph(model)
+            model = model.to(torch.device(device)).eval()
+    else:
+        model = model.to(device).eval()
+    
     return model
 
 

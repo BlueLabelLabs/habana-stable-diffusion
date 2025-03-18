@@ -1,0 +1,46 @@
+FROM vault.habana.ai/gaudi-docker/1.18.0/ubuntu22.04/habanalabs/pytorch-installer-2.4.0:latest
+
+# Set working directory
+WORKDIR /workspace/sd
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    tzdata \
+    python3-pip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN pip install --upgrade pip
+
+# Install core dependencies
+RUN pip install --no-cache-dir \
+    numpy>=1.21.0 \
+    albumentations==0.4.3 \
+    diffusers \
+    opencv-python-headless>=4.5.1.48 \
+    pudb==2019.2 \
+    invisible-watermark \
+    imageio==2.9.0 \
+    imageio-ffmpeg==0.4.2 \
+    omegaconf==2.1.1 \
+    test-tube>=0.7.5 \
+    streamlit>=0.73.1 \
+    einops==0.3.0 \
+    kornia==0.6
+
+# Install requirements_hpu.txt
+COPY requirements_hpu.txt /workspace/sd/requirements_hpu.txt
+RUN pip install --no-cache-dir -r /workspace/sd/requirements_hpu.txt
+
+# Fix pytorch-lightning version (to avoid illegal instruction)
+RUN pip install --no-cache-dir pytorch-lightning==2.1.2 torchmetrics==0.11.4
+
+# Copy project files
+COPY . /workspace/sd
+
+# Fix ldm module issue
+ENV PYTHONPATH="/workspace/sd:${PYTHONPATH}"
+
+# Final cleanup to reduce image size
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
